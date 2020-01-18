@@ -33,15 +33,25 @@ def help(update, context):
         text = str(counter) + ": " + str(s) + '\n'
         output += text
         counter += 1
-    update.message.reply_text(output)
+    context.bot.send_message(chat_id=update.effective_chat.id, text=output)
+
 
 def testdb(update, context):
     """Datenbank testen"""
     conn = sqlite3.connect('savegame.db')
     c = conn.cursor()
-    # Create table
-    try: c.execute('''CREATE TABLE todoliste (todo text not null)''')
-    except: print("Datenbank existiert bereits. Schritt wird übersprungen")
+    # Create table for todolist
+    try: c.execute("CREATE TABLE todoliste (todo text not null)")
+    except: print("Datenbank todoliste existiert bereits. Schritt wird übersprungen")
+
+    try: c.execute("CREATE TABLE kinokarten (person TEXT NOT NULL, film TEXT NOT NULL,datum TEXT NOT NULL, uhrzeit TEXT NOT NULL, sitz TEXT NOT NULL)")
+    except: print("Datenbank kinokarten existiert bereits. Schritt wird übersprungen")
+
+    try:c.execute("CREATE TABLE film (titel TEXT NOT NULL, datum TEXT ,uhrzeit TEXT)")
+    except: print("Datenbank film existiert bereits. Schritt wird übersprungen")
+
+    #c.execute("INSERT INTO film VALUES ('Herr der Ringe', '2020-02-13', '12:14')")
+    #except: print("Hat nicht geklappt!")
 
     conn.commit()
     conn.close()
@@ -70,35 +80,139 @@ def schreibeTodoInDB(todo):
     conn.close()
 
 def writeList(update, context):
-    """Schreibe den Inhalt der Liste in den Chat"""
-    output = "Todo-Liste der Fantastischen-Vier: \n"
+    if update.effective_chat.id == -395510725:
+        """Schreibe den Inhalt der Liste in den Chat"""
+        output = "Todo-Liste der Fantastischen-Vier: \n"
 
-    conn = sqlite3.connect('savegame.db')
-    c = conn.cursor()
-    counter = 1
+        conn = sqlite3.connect('savegame.db')
+        c = conn.cursor()
+        counter = 1
 
-    for row in c.execute('SELECT * FROM todoliste'):
+        for row in c.execute('SELECT * FROM todoliste'):
 
-        text = str(counter) + ": " + str(row[0]) + '\n'
-        output += text
-        counter += 1
-    conn.commit()
-    conn.close()
+            text = str(counter) + ": " + str(row[0]) + '\n'
+            output += text
+            counter += 1
+        conn.commit()
+        conn.close()
 
-    update.message.reply_text(output)
+        context.bot.send_message(chat_id=update.effective_chat.id, text=output)
 
 def entferneCommandVonText(nachricht):
     entf = str(nachricht)
     output = entf.split(None, 1)
     return output[1]
 
+
+
+
 def error(update, context):
     """Log Errors caused by Updates."""
     logger.warning('Update "%s" caused error "%s"', update, context.error)
 
+def test(update, context):
+    context.bot.send_message(chat_id=update.effective_chat.id, text="I'm a bot, please talk to me!")
+    #print(update.message)
+    schreibeKinokarteInDB("Star Wars")
 
 
 
+
+def addFilm(update, context):
+    film = entferneCommandVonText(update.message.text)
+    schreibeFilmInDB(film)
+
+def loescheFilm(update, context):
+    film = entferneCommandVonText(update.message.text)
+    loescheFilmAusDB(film)
+
+def listFilme(update, context):
+    output = "Gebuchte Filme: \n"
+
+    conn = sqlite3.connect('savegame.db')
+    c = conn.cursor()
+    c2 = conn.cursor()
+    counter = 1
+    for row in c.execute("SELECT * FROM film"):
+        text = '\n' + str(counter) + ": " + row[0] + '\n'
+        output += text
+        counter += 1
+        for rowKarte in c2.execute("SELECT * FROM kinokarten where film = ? order by sitz", (row[0],)):
+            text = '     ' + str(rowKarte[4]) + ' - ' + str(rowKarte[0]) + '\n'
+            output += text
+    conn.commit()
+    conn.close()
+
+
+    context.bot.pinChatMessage(message_id=context.bot.send_message(chat_id=update.effective_chat.id, text=output).message_id, chat_id=update.effective_chat.id)
+
+def addKarte(update, context):
+    film = leseFilmausDB(holeFilmAusKarteInput(update))
+    sitz = holeSitzAusKarteInput(update)
+    name = update.effective_user.first_name
+    schreibeKinokarteInDB(film, sitz, name)
+
+    context.bot.send_message(chat_id=update.effective_chat.id, text=film + ':' + sitz)
+
+def loescheKarte(update, context):
+    film = leseFilmausDB(holeFilmAusKarteInput(update))
+    sitz = holeSitzAusKarteInput(update)
+    name = update.effective_user.first_name
+    loescheKinokarteAusDB(film, sitz, name)
+
+def holeFilmAusKarteInput(update):
+    txt = str(update.message.text).split(":")
+    film = txt[0].split(None, 1)
+    return film[1]
+
+def holeSitzAusKarteInput(update):
+    txt = str(update.message.text).split(":")
+    return txt[1]
+
+
+def schreibeFilmInDB(film):
+    conn = sqlite3.connect('savegame.db')
+    c = conn.cursor()
+    c.execute("INSERT INTO film VALUES (?, 'xxx', 'xxx')", (film,))
+    conn.commit()
+    conn.close()
+
+def loescheFilmAusDB(filmId):
+    conn = sqlite3.connect('savegame.db')
+    c = conn.cursor()
+    titel = leseFilmausDB(filmId)
+    c.execute("DELETE FROM film where titel = ?", (titel,))
+    conn.commit()
+    conn.close()
+
+def leseFilmausDB(filmId):
+    conn = sqlite3.connect('savegame.db')
+    c = conn.cursor()
+    counter = 1
+    for row in c.execute("SELECT * FROM film"):
+        if counter == int(filmId):
+            #print(row[0])
+            return row[0]
+        else:
+            counter += 1
+    return "Fehler"
+
+def schreibeKinokarteInDB(film, sitz, name):
+    conn = sqlite3.connect('savegame.db')
+    c = conn.cursor()
+    kinokarte = (name, film, 'xxx', 'xxx', sitz)
+    c.execute("INSERT INTO kinokarten VALUES (?,?,?,?,?)", (kinokarte))
+    conn.commit()
+    conn.close()
+
+def loescheKinokarteAusDB(film, sitz, name):
+    conn = sqlite3.connect('savegame.db')
+    c = conn.cursor()
+    kinokarte = (name, film, sitz)
+    c.execute("DELETE FROM kinokarten WHERE person=? AND film=? AND sitz=?", (kinokarte))
+    conn.commit()
+    conn.close()
+#-395510725
 
 def main():
     """Start the bot."""
@@ -117,6 +231,12 @@ def main():
     dp.add_handler(CommandHandler("list", writeList))
     dp.add_handler(CommandHandler("add", addToDo))
     dp.add_handler(CommandHandler("del", deleteToDo))
+    dp.add_handler(CommandHandler("test", test))
+    dp.add_handler(CommandHandler("addfilm", addFilm))
+    dp.add_handler(CommandHandler("filme", listFilme))
+    dp.add_handler(CommandHandler("karte", addKarte))
+    dp.add_handler(CommandHandler("delfilm", loescheFilm))
+    dp.add_handler(CommandHandler("delkarte", loescheKarte))
 
     # log all errors
     dp.add_error_handler(error)
