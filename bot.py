@@ -4,6 +4,7 @@
 
 import logging
 import sqlite3
+import telegram
 
 from telegram.ext import Updater, CommandHandler
 
@@ -16,10 +17,26 @@ logger = logging.getLogger(__name__)
 # Define a few command handlers. These usually take the two arguments update and
 # context. Error handlers also receive the raised TelegramError object in error.
 
-commands = ["/help - Gibt eine Liste aller Commands aus",
+helpToDo = ["/help - Gibt eine Liste aller Commands aus",
                 "/add % - Fügt einen Eintrag zur ToDo-Liste hinzu",
                 "/del % - Löscht einen Eintrag aus der ToDo Liste",
                 "/list - Zeigt die komplette Liste an"]
+
+helpKino = ["/help - <b>Liste aller Commands.</b>\n",
+                "/addfilm - <b>Hinzufügen eines Films</b>",
+                "Bitte gebt hier sowohl den Filmnamen als auch Datum, Uhrzeit und Ort ein.\n"
+                "<i>Beispiel: /addfilm Star Wars, 20.03.20, 17:00, M</i>\n",
+                "/delfilm - <b>Löschen eines Films</b>",
+                "<i>Beispiel: /delfilm Star Wars</i>\n",
+                "/filme - <b>Eine Liste aller Filme</b>",
+                "<i>Beispiel: /filme</i>\n",
+                "/karte - <b>Buchung einer Vorstellung</b>",
+                "Hierfür ist es notwendig über den angehefteten Post die Nummer des Filmes herauszusuchen, für den man eine Buchung vorgenommen hat.\n",
+                "<i>Beispiel: /karte 1:D5 - Die erste Zahl gibt dabei den Film und die Zeichen hinter dem : den Sitzplatz an. Der Name wird automatisch ergänzt.</i>\n",
+                "/delkarte - <b>Löschen einer Buchung</b>",
+                "Hierfür ist es notwendig über den angehefteten Post die Nummer des Filmes herauszusuchen, für den man eine Buchung vorgenommen hat.\n",
+                "<i>Beispiel: /delkarte 1:D5 - Die erste Zahl gibt dabei den Film und die Zeichen hinter dem : den Sitzplatz an. Der Name wird automatisch ergänzt.</i>\n",
+                ]
 
 def start(update, context):
     """Send a message when the command /start is issued."""
@@ -27,13 +44,11 @@ def start(update, context):
 
 def help(update, context):
 
-    output = ""
-    counter = 1
-    for s in commands:
-        text = str(counter) + ": " + str(s) + '\n'
+    output = "Dieser Bot soll helfen, die verschiedenen Buchungen mit der UC zu sammeln und zu verwalten \n\n"
+    for s in helpKino:
+        text = str(s) + '\n'
         output += text
-        counter += 1
-    context.bot.send_message(chat_id=update.effective_chat.id, text=output)
+    context.bot.send_message(chat_id=update.effective_chat.id, text=output, parse_mode=telegram.ParseMode.HTML)
 
 
 def testdb(update, context):
@@ -124,7 +139,10 @@ def addFilm(update, context):
 
 def loescheFilm(update, context):
     film = entferneCommandVonText(update.message.text)
+    loescheKartenZuFilm(leseFilmausDB(film))
     loescheFilmAusDB(film)
+
+
 
 def listFilme(update, context):
     output = "Gebuchte Filme: \n"
@@ -170,6 +188,7 @@ def holeSitzAusKarteInput(update):
     return txt[1]
 
 
+
 def schreibeFilmInDB(film):
     conn = sqlite3.connect('savegame.db')
     c = conn.cursor()
@@ -191,11 +210,18 @@ def leseFilmausDB(filmId):
     counter = 1
     for row in c.execute("SELECT * FROM film"):
         if counter == int(filmId):
-            #print(row[0])
             return row[0]
         else:
             counter += 1
     return "Fehler"
+
+
+def loescheKartenZuFilm(film):
+    conn = sqlite3.connect('savegame.db')
+    c = conn.cursor()
+    c.execute("DELETE FROM kinokarten WHERE film=?", (film,))
+    conn.commit()
+    conn.close()
 
 def schreibeKinokarteInDB(film, sitz, name):
     conn = sqlite3.connect('savegame.db')
