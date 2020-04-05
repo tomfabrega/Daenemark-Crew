@@ -43,13 +43,21 @@ def start(update, context):
     update.message.reply_text('Hi!')
 
 def help(update, context):
-
-    output = "Dieser Bot soll helfen, die verschiedenen Buchungen mit der UC zu sammeln und zu verwalten \n\n"
-    for s in helpKino:
-        text = str(s) + '\n'
-        output += text
-    context.bot.send_message(chat_id=update.effective_chat.id, text=output, parse_mode=telegram.ParseMode.HTML)
-
+    if update.effective_chat.id == -1001298641312: # UC Gruppe
+        output = "Dieser Bot soll helfen, die verschiedenen Buchungen mit der UC zu sammeln und zu verwalten \n\n"
+        for s in helpKino:
+            text = str(s) + '\n'
+            output += text
+        context.bot.send_message(chat_id=update.effective_chat.id, text=output, parse_mode=telegram.ParseMode.HTML)
+    elif update.effective_chat.id == -273190238: # Fanta 4 -395510725: # Testgruppe
+        output = "Die Nutzung der ToDo-Liste: \n\n"
+        for s in helpToDo:
+            text = str(s) + '\n'
+            output += text
+        context.bot.send_message(chat_id=update.effective_chat.id, text=output, parse_mode=telegram.ParseMode.HTML)
+    else:
+        output = "Keine Hilfe für den Channel"
+        context.bot.send_message(chat_id=update.effective_chat.id, text=output, parse_mode=telegram.ParseMode.HTML)
 
 def testdb(update, context):
     """Datenbank testen"""
@@ -95,7 +103,7 @@ def schreibeTodoInDB(todo):
     conn.close()
 
 def writeList(update, context):
-    if update.effective_chat.id == -395510725:
+    if update.effective_chat.id == -273190238: #Testgruppe -395510725
         """Schreibe den Inhalt der Liste in den Chat"""
         output = "Todo-Liste der Fantastischen-Vier: \n"
 
